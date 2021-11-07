@@ -19,7 +19,21 @@ class Ralf:
         exp_id: Optional[str] = None,
     ):
         if not ray.is_initialized():
-            ray.init(log_to_driver=False)
+            ray.init(
+                # _plasma_directory="/tmp",
+                object_store_memory=79*1024*1024,
+                log_to_driver=False,
+                _system_config={
+                    "min_spilling_size": 1024 * 1024,
+                    "object_spilling_config": json.dumps(
+                    { 
+                        "type": "filesystem",
+                        "params": {
+                            "directory_path": "/tmp/spill"
+                        }
+                    })
+                }
+            )
         self.tables = {}
 
         self.metric_dir = self._make_metric_dir(metric_dir)
@@ -31,6 +45,9 @@ class Ralf:
 
             wandb.init(project="stl", entity="ucb-ralf", group=exp_id)
             wandb.run.name = exp_id
+        
+        # self.ref = ray.put([1] * (1024 ** 3))
+        # self.r = ray.get(self.ref)
 
     def _make_metric_dir(self, metric_dir: Optional[str] = None):
         if metric_dir is None:

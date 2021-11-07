@@ -173,7 +173,7 @@ class Operator(ABC):
         }
 
     def debug_state(self):
-        return {
+        d = {
             "table": self._table.debug_state(),
             "process": self._process_stat(),
             "cache_size": self._cache_size,
@@ -181,6 +181,8 @@ class Operator(ABC):
             "thread_pool_size": self._thread_pool._max_workers,
             "queue_size": {k: v.qsize() for k, v in self._events.items()},
         }
+        import pdb; pdb.set_trace()
+        return d
 
     def _worker(self):
         """Continuously processes events."""
