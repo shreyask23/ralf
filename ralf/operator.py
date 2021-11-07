@@ -7,6 +7,7 @@ from queue import PriorityQueue
 import random
 import threading
 from typing import Callable, List, Optional
+import time
 
 import psutil
 import ray
@@ -298,3 +299,15 @@ class Operator(ABC):
     def get_all(self):
         # TODO: Generate missing values
         return self._table.bulk_query()
+
+    async def timed_get(self, key: str):
+        start_time = time.time()
+        result = self.get(key)
+        end_time = time.time()
+        return (start_time, end_time, result)
+    
+    async def timed_get_all(self):
+        start_time = time.time()
+        result = self.get_all()
+        end_time = time.time()
+        return (start_time, end_time, result)
