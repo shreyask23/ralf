@@ -230,12 +230,14 @@ class Operator(ABC):
         # update state table
         self._table.update(record)
 
-        # TODO(peter): move eviction code to an update_record function,
-        # as the table may change lazily.
-        if self._cache_size > 0:
-            self._lru.pop(key, None)
-            self._lru[key] = key
-            self._table.update(record)
+        eviction_policy("lru")
+
+    def eviction_policy(eviction_type="lru"):
+        if eviction_type == "lru":
+            if self._cache_size > 0:
+                self._lru.pop(key, None)
+                self._lru[key] = key
+                self._table.update(record)
 
             if len(self._lru) > self._cache_size:
                 evict_key = self._lru.popitem(last=False)[0]
@@ -245,10 +247,13 @@ class Operator(ABC):
                 for child in self._children:
                     child.choose_actor(evict_key).evict.remote(evict_key)
 
-        record._source = self._actor_handle
-        # Network optimization: only send to non-lazy children.
-        for child in filter(lambda c: not c.is_lazy(), self._children):
-            child.choose_actor(key)._on_record.remote(record)
+            record._source = self._actor_handle
+            # Network optimization: only send to non-lazy children.
+            for child in filter(lambda c: not c.is_lazy(), self._children):
+                child.choose_actor(key)._on_record.remote(record)
+
+        elif eviction_type=="eviction_policy":
+            pass
 
     def evict(self, key: str):
         self._table.delete(key)
