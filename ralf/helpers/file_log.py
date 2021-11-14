@@ -12,7 +12,7 @@ class QueryType(Enum):
 def log_query_info(query_type, table, time, latency, key=None):
     with open(FILENAME, "a+") as f:
         f.write(
-            f"{query_type}{DELIMITER}"
+            f"{query_type.value}{DELIMITER}"
             f"Table: {str(table)}{DELIMITER}"
             f"Key: {str(key)}{DELIMITER}"
             f"Time: {time}{DELIMITER}"           # In milliseconds
@@ -60,6 +60,9 @@ def query_count_and_latency(query_type: QueryType=QueryType.ANY_QUERY,
     with open(FILENAME, "r") as f:
         for line in f:
             toks = line.strip().split(DELIMITER)
+            for i in range(len(toks)):
+                if ":" in toks[i]:
+                    toks[i] = toks[i + 2:]
             if filter_line(toks, query_type, table, key, min_time_stamp,
                     max_time_stamp, min_latency, max_latency):
                 logged_latency = float(toks[4])
