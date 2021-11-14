@@ -29,6 +29,7 @@
 import sys
 sys.path
 
+from latency_timing import *
 
 # # Creating a `Ralf` instance 
 # We create a instance of ralf to that we can start creating tables for our raw data and features. 
@@ -322,26 +323,7 @@ source.debug_state()
 
 # print(ralf_server.r)
 import asyncio
-import ray
-
-async def _timed_table_query_helper(table, key=None):
-    operators = table.pool.handles
-    if key == None:
-        queries = ray.get([operator.timed_get_all.remote() for operator in operators])
-    else:
-        queries = ray.get([operator.timed_get.remote(key) for operator in operators])
-    # await asyncio.wait(queries)
-    print(f"Queries type: {type(queries)} -- queries: {queries}")
-    earliest_start_time = sorted(queries, key=lambda timed_result: timed_result[0])[0][0]
-    latest_end_time = sorted(queries, key=lambda timed_result: timed_result[1])[-1][1]
-
-    print(f"Time: {latest_end_time - earliest_start_time}")
-    return latest_end_time - earliest_start_time
-
-async def timed_table_point_query(table, key):
-    return await _timed_table_query_helper(table, key=key)
-
-async def timed_table_bulk_query(table):
-    return await _timed_table_query_helper(table)
 
 print(asyncio.run(timed_table_bulk_query(user_vectors)))
+
+print()
