@@ -4,7 +4,7 @@ import ray
 from file_log import QueryType, log_query_info
 import time
 
-def time_milliseconds(t: int=None):
+def time_milliseconds(t: float=None):
     if t is None:
         return time.time() * 1000  # Return current time
     else:
@@ -31,7 +31,7 @@ async def timed_table_point_query(table, key, time=None):
 
     if time is None:
         time = time_milliseconds()
-    latency = time_milliseconds(_timed_table_query_helper(table, key=key))
+    latency = time_milliseconds(await _timed_table_query_helper(table, key=key))
     log_query_info(QueryType.POINT_QUERY, table, time, latency, key=key)
     return latency
 
@@ -42,6 +42,6 @@ async def timed_table_bulk_query(table, time=None):
 
     if time is None:
         time = time_milliseconds()
-    latency = time_milliseconds(_timed_table_query_helper(table))
+    latency = time_milliseconds(await _timed_table_query_helper(table))
     log_query_info(QueryType.BULK_QUERY, table, time, latency)
     return latency
