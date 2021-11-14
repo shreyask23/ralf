@@ -230,9 +230,11 @@ class Operator(ABC):
         # update state table
         self._table.update(record)
 
-        eviction_policy("lru")
+        self._eviction_policy(record, eviction_type="lru")
 
-    def eviction_policy(eviction_type="lru"):
+    def _eviction_policy(self, record: Record, eviction_type="lru"):
+        key = getattr(record, self._table.schema.primary_key)
+
         if eviction_type == "lru":
             if self._cache_size > 0:
                 self._lru.pop(key, None)
