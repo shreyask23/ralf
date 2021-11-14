@@ -1,7 +1,7 @@
 from enum import Enum
+from pathlib import Path
 from typing import List
 
-# TODO: Create directory if doesn't exist
 FILENAME = "/tmp/ralf_stats/latest.txt"
 DELIMITER = "|"
 
@@ -11,6 +11,9 @@ class QueryType(Enum):
     ANY_QUERY = "PB"
 
 def log_query_info(query_type, table, time, latency, key=None):
+    # Create parent directories if they don't exist then create the file
+    Path(FILENAME).parent.mkdir(parents=True, exist_ok=True)
+
     with open(FILENAME, "a+") as f:
         f.write(
             f"{query_type.value}{DELIMITER}"
