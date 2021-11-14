@@ -1,6 +1,7 @@
 from enum import Enum
 from typing import List
 
+# TODO: Create directory if doesn't exist
 FILENAME = "/tmp/ralf_stats/latest.txt"
 DELIMITER = "|"
 
@@ -89,6 +90,8 @@ def calculate_average_latency(query_type: QueryType=QueryType.ANY_QUERY,
                         max_time_stamp=max_time_stamp,
                         min_latency=min_latency,
                         max_latency=max_latency)
+    if total_queries == 0:
+        return None
     return total_latency / total_queries
 
 def calculate_total_query_latency(query_type: QueryType=QueryType.ANY_QUERY,
