@@ -62,7 +62,7 @@ def query_count_and_latency(query_type: QueryType=QueryType.ANY_QUERY,
             toks = line.strip().split(DELIMITER)
             for i in range(len(toks)):
                 if ":" in toks[i]:
-                    toks[i] = toks[i][toks.find(":") + 2:]
+                    toks[i] = toks[i][toks[i].find(":") + 2:]
             if filter_line(toks, query_type, table, key, min_time_stamp,
                     max_time_stamp, min_latency, max_latency):
                 logged_latency = float(toks[4])
