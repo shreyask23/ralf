@@ -5,10 +5,10 @@ class Disk:
     def __init__(self):
         self.storage = dict()
     
-    def fetch(self, key) -> 'tuple[Record, int]':
+    def fetch(self, key) -> Record:
         if key in self.storage:
             return self.storage[key]
-        return None, None
+        return None
 
     def save(self, key, value):
         self.storage[key] = value
