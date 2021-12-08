@@ -72,6 +72,7 @@ class MemoryManager:
         self.mem_cache[key] = record
         # print(f"Getting key: {key} from mem cache")
         eviction_candidates = self.eviction_policy.decide_eviction_candidates(key, self.get_record_num_bytes())
+        self.evict(eviction_candidates)
 
         return record, did_fetch_from_disk, eviction_candidates
 
@@ -81,6 +82,7 @@ class MemoryManager:
 
         # Cache might be full so decide and evict candidates
         eviction_candidates = self.eviction_policy.decide_eviction_candidates(key, self.get_record_num_bytes())
+        self.evict(eviction_candidates)
         
         return eviction_candidates
         
