@@ -1,8 +1,8 @@
 from typing import Dict, Hashable, List
 from enum import Enum
 from ralf import Record
-from .policies import LRU, MRU, Hyperbolic, Random
-from .disk import Disk
+from policies import LRU, MRU, Hyperbolic, Random
+from disk import Disk
 
 EVICTION_POLICIES = dict(
         lru=LRU,
