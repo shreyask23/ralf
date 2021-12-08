@@ -1,3 +1,5 @@
+from memory_manager import MemoryManager
+
 import sys
 from ralf import Ralf
 
@@ -12,6 +14,9 @@ import time
 DISK_WRITE_FILE_NAME = "disk_write.txt"
 DISK_READ_FILE_NAME = "disk_read.txt"
 LOG_FILE_NAME = "log.txt"
+
+mm = MemoryManager()
+mm.toggle_cost_aware_optimization_enabled_parameter(True)
 
 class Source(SourceOperator):
     def __init__(self, schema):
@@ -38,14 +43,22 @@ from ralf import Operator, Record
 class LongLatency(Operator):
     def __init__(self, schema):
         super().__init__(schema)
+        self.name = "long_latency"
 
     def on_record(self, record: Record):
-        time.sleep(3)
-        # get() record w/ memory manager
-        # if there are eviction candidates, simulate writing to disk
-        # if we fetched from disk, simulate writing to disk
-        output_record = record
-        return output_record
+        mem_record, did_fetch_from_disk, ec = mm.get(self.name + "_" + record.user)
+        if mem_record is None:
+            time.sleep(3)
+            ec.extend(mm.set(self.name + "_" + record.user, record))
+        if did_fetch_from_disk:
+            with open(DISK_READ_FILE_NAME, "r") as f:
+                lines = f.readlines()
+                lines.split()
+        for candidate_key in range(len(ec)):
+            if candidate_key.find("short_latency") != 0:
+                with open(DISK_WRITE_FILE_NAME, "w+") as f:
+                    f.write("Here's a new record!\n")
+        return record
 
 long_latency_schema = Schema(
     primary_key="user", columns={"user": str, "timestamp": time}
@@ -55,12 +68,18 @@ long_latency = source.map(LongLatency, args=(long_latency_schema,))
 class ShortLatency(Operator):
     def __init__(self, schema):
         super().__init__(schema)
+        self.name = "short_latency"
 
     def on_record(self, record: Record):
-        time.sleep(0.00000001)
-        # get() record w/ memory manager
-        output_record = record
-        return output_record
+        mem_record, _, ec = mm.get(self.name + "_" + record.user)
+        if mem_record is None:
+            time.sleep(0.00000001)
+            ec.extend(mm.set(self.name + "_" + record.user, record))
+        for candidate_key in range(len(ec)):
+            if candidate_key.find("short_latency") != 0:
+                with open(DISK_WRITE_FILE_NAME, "w+") as f:
+                    f.write("Here's a new record!\n")
+        return record
 
 short_latency_schema = Schema(
     primary_key="user", columns={"user": str, "timestamp": time}
@@ -86,7 +105,7 @@ class Writer(Operator):
 
     def on_record(self, record: Record):
         with open(LOG_FILE_NAME, "a+") as f:
-            f.write(f"st:{record.start_timestamp} | et: {record.end_timestamp} | latency: {record.end_timestamp - record.start_timestamp}")
+            f.write(f"st:{record.start_timestamp} | et: {record.end_timestamp} | latency: {record.end_timestamp - record.start_timestamp}\n")
         return record
 
 writer_latency_schema = Schema(

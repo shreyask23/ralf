@@ -56,7 +56,7 @@ class MemoryManager:
         self.eviction_policy = EVICTION_POLICIES.get(eviction_policy, LRU)(self.memory_capacity_num_bytes)
         self.eviction_policy_str = eviction_policy
     
-    def get(self, key: Hashable, opt_params={}) -> 'tuple[Record, bool]':
+    def get(self, key: Hashable, opt_params={}) -> 'tuple[Record, bool, List]':
         did_fetch_from_disk = False
         eviction_candidates = []
 
@@ -64,11 +64,11 @@ class MemoryManager:
             record = self.mem_cache[key]
             return record, did_fetch_from_disk, eviction_candidates
         
-        did_fetch_from_disk = True
         record = self.disk.fetch(key)
         if record is None:
             return None, did_fetch_from_disk, eviction_candidates
 
+        did_fetch_from_disk = True
         self.mem_cache[key] = record
         # print(f"Getting key: {key} from mem cache")
         eviction_candidates = self.eviction_policy.decide_eviction_candidates(key, self.get_record_num_bytes())
@@ -103,7 +103,7 @@ class MemoryManager:
             op_latency = opt_params.get('op_latency', None)
 
             # TODO(shreyas): Will need to change op_latency and tweak optimization condition            
-            if self.is_cost_aware_optimization_enabled and ((op_latency is not None and op_latency < self.disk_access_reading_latency_sec + self.disk_access_writing_latency_sec)):
+            if self.is_cost_aware_optimization_enabled and key.find("short_latency") != 0:
                 # Not a raw feature so we can optimize by recalculating if record op latency < cost to read and write record from disk
                 continue
             
