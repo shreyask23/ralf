@@ -9,7 +9,9 @@ from ralf import Record
 import random
 import time
 
-DISK_FILE_NAME = "disk.txt"
+DISK_WRITE_FILE_NAME = "disk_write.txt"
+DISK_READ_FILE_NAME = "disk_read.txt"
+LOG_FILE_NAME = "log.txt"
 
 class Source(SourceOperator):
     def __init__(self, schema):
@@ -18,14 +20,12 @@ class Source(SourceOperator):
     def next(self):
         time.sleep(0.01)
         user_id = random.randint(1, 10)
-        movie_id = random.randint(100, 200)
-        rating = random.randint(1, 5)
-        return [Record(user=str(user_id), movie=movie_id, rating=rating)]
+        return [Record(user=str(user_id), timestamp=time.time())]
 
 from ralf import Schema
 
 source_schema = Schema(
-    primary_key="user", columns={"user": str, "movie": int, "rating": float}
+    primary_key="user", columns={"user": str, "timestamp": time}
 )
 
 source = ralf_server.create_source(Source, args=(source_schema,))
@@ -40,63 +40,62 @@ class LongLatency(Operator):
         super().__init__(schema)
 
     def on_record(self, record: Record):
-        self.user_ratings[record.user].append(record.rating)
-        ratings = np.array(self.user_ratings[record.user])
-        output_record = Record(user=record.user, average=ratings.mean())
+        time.sleep(3)
+        # get() record w/ memory manager
+        # if there are eviction candidates, simulate writing to disk
+        # if we fetched from disk, simulate writing to disk
+        output_record = record
         return output_record
 
-average_rating_schema = Schema(
-    primary_key="user", columns={"user": str, "average": float}
+long_latency_schema = Schema(
+    primary_key="user", columns={"user": str, "timestamp": time}
 )
-long_latency = source.map(LongLatency, args=(average_rating_schema,))
+long_latency = source.map(LongLatency, args=(long_latency_schema,))
 
 class ShortLatency(Operator):
     def __init__(self, schema):
         super().__init__(schema)
 
     def on_record(self, record: Record):
-        self.user_ratings[record.user].append(record.rating)
-        ratings = np.array(self.user_ratings[record.user])
-        output_record = Record(user=record.user, average=ratings.mean())
+        time.sleep(0.00000001)
+        # get() record w/ memory manager
+        output_record = record
         return output_record
 
-average_rating_schema = Schema(
-    primary_key="user", columns={"user": str, "average": float}
+short_latency_schema = Schema(
+    primary_key="user", columns={"user": str, "timestamp": time}
 )
-short_latency = long_latency.map(ShortLatency, args=(average_rating_schema,))
+short_latency = long_latency.map(ShortLatency, args=(short_latency_schema,))
 
 class SinkOperator(Operator):
     def __init__(self, schema):
         super().__init__(schema)
 
     def on_record(self, record: Record):
-        self.user_ratings[record.user].append(record.rating)
-        ratings = np.array(self.user_ratings[record.user])
-        output_record = Record(user=record.user, average=ratings.mean())
+        output_record = Record(user=record.user, start_timestamp=record.timestamp, end_timestamp=time.time())
         return output_record
 
-average_rating_schema = Schema(
-    primary_key="user", columns={"user": str, "average": float}
+sink_latency_schema = Schema(
+    primary_key="user", columns={"user": str, "start_timestamp": time, "end_timestamp": time}
 )
-sink_operator = short_latency.map(ShortLatency, args=(average_rating_schema,))
+sink_operator = short_latency.map(SinkOperator, args=(sink_latency_schema,))
 
 class Writer(Operator):
     def __init__(self, schema):
         super().__init__(schema)
 
     def on_record(self, record: Record):
-        self.user_ratings[record.user].append(record.rating)
-        ratings = np.array(self.user_ratings[record.user])
-        output_record = Record(user=record.user, average=ratings.mean())
-        return output_record
+        with open(LOG_FILE_NAME, "a+") as f:
+            f.write(f"st:{record.start_timestamp} | et: {record.end_timestamp} | latency: {record.end_timestamp - record.start_timestamp}")
+        return record
 
-average_rating_schema = Schema(
-    primary_key="user", columns={"user": str, "average": float}
+writer_latency_schema = Schema(
+    primary_key="user", columns={"user": str, "start_timestamp": time, "end_timestamp": time}
 )
-writer = sink_operator.map(ShortLatency, args=(average_rating_schema,))
+writer = sink_operator.map(Writer, args=(writer_latency_schema,))
 
 
-writer.as_queryable("average")
+writer.as_queryable("writer")
 
 # ************************************************************************** #
 # ************************************************************************** #
