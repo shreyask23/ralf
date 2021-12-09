@@ -1,4 +1,5 @@
 from memory_manager import MemoryManager
+from collections import deque
 
 import sys
 from ralf import Ralf
@@ -15,6 +16,8 @@ DISK_WRITE_FILE_NAME = "disk_write.txt"
 DISK_READ_FILE_NAME = "disk_read.txt"
 LOG_FILE_NAME = "log.txt"
 
+next_record_id_queue = deque([])
+
 mm = MemoryManager()
 mm.toggle_cost_aware_optimization_enabled_parameter(True)
 
@@ -23,9 +26,11 @@ class Source(SourceOperator):
         super().__init__(schema)
 
     def next(self):
-        time.sleep(0.01)
-        user_id = random.randint(1, 10)
+        while len(next_record_id_queue) == 0:
+            time.sleep(5)
+        user_id = next_record_id_queue.popleft()
         return [Record(user=str(user_id), timestamp=time.time())]
+
 
 from ralf import Schema
 
@@ -36,7 +41,6 @@ source_schema = Schema(
 source = ralf_server.create_source(Source, args=(source_schema,))
 
 from collections import defaultdict
-import numpy as np
 
 from ralf import Operator, Record
 
@@ -164,9 +168,58 @@ async def timed_table_bulk_query(table):
 
 # print(asyncio.run(timed_table_bulk_query(user_vectors)))
 
-delay = 5
-print(f"Waiting {delay} seconds before bulk querying from writer table")
-time.sleep(delay)
-print(ralf_client.bulk_query(table_name="writer"))
+# delay = 5
+# print(f"Waiting {delay} seconds before bulk querying from writer table")
+# time.sleep(delay)
+# print(ralf_client.bulk_query(table_name="writer"))
 
-print(ralf_client.point_query(table_name="writer", key="1"))
+# print(ralf_client.point_query(table_name="writer", key="1"))
+
+# ************************************************************************** #
+# ************************************************************************** #
+# ************************************************************************** #
+
+keys = ["v_{i}" for i in range(1000000000)]
+
+for key in keys:
+    next_record_id_queue.append(key)
+
+with open(LOG_FILE_NAME, "a+") as f:
+    f.write("\nFinished loading the table!\n")
+
+# Query the keys (equivalent to insertion in sim)
+with open(LOG_FILE_NAME, "a+") as f:
+    f.write("\nStarting to query keys!\n")
+
+from scipy.stats import norm
+import numpy as np
+
+gaussian_pdf = norm.pdf(np.linspace(norm.ppf(0.01), norm.ppf(0.99), len(keys)))
+normalized_gaussian_pdf = gaussian_pdf / sum(gaussian_pdf)
+
+num_queries = 1000
+for query in range(num_queries):
+    random_key = np.random.choice(keys, p=normalized_gaussian_pdf)
+
+    timed_table_point_query(Writer, random_key)
+    pq_latency = ralf_client.point_query(table_name="writer", key="1")
+    with open(LOG_FILE_NAME, "a+") as f:
+        f.write(f"PQ | Key: {random_key} | Latency: {pq_latency}\n")
+
+with open(LOG_FILE_NAME, "a+") as f:
+    f.write("\nFinished querying keys!\n")
+
+# Insert keys (equivalent to queries in sim)
+
+with open(LOG_FILE_NAME, "a+") as f:
+    f.write("\nStarting to insert keys!\n")
+
+num_insertions = 1000
+for insertion in range(num_insertions):
+    random_key = np.random.choice(keys) + "_new"
+    next_record_id_queue.append(random_key)
+
+with open(LOG_FILE_NAME, "a+") as f:
+    f.write("\nFinished inserting keys!\n")
+
+# Mix of queries and insertions
