@@ -14,9 +14,13 @@ import time
 
 DISK_WRITE_FILE_NAME = "disk_write.txt"
 DISK_READ_FILE_NAME = "disk_read.txt"
-LOG_FILE_NAME = "log.txt"
+OPERATOR_LOG_FILE_NAME = "operator_log.txt"
+QUERY_LOG_FILE_NAME = "query_log.txt"
 
 next_record_id_queue = deque([])
+keys = [f"v_{i}" for i in range(100)]
+next_key_index = 0
+key_suffix = ""
 
 mm = MemoryManager()
 mm.toggle_cost_aware_optimization_enabled_parameter(True)
@@ -26,10 +30,60 @@ class Source(SourceOperator):
         super().__init__(schema)
 
     def next(self):
-        while len(next_record_id_queue) == 0:
-            time.sleep(5)
-        user_id = next_record_id_queue.popleft()
-        return [Record(user=str(user_id), timestamp=time.time())]
+        # while True:
+        #     if len(next_record_id_queue) > 0:
+        #         user_id = next_record_id_queue.popleft()
+        #         return [Record(user=str(user_id), timestamp=time.time())]
+        #     else:
+        #         time.sleep(0.1)
+        
+        # if self._table.num_updates > 0:
+        #     time.sleep(30)
+
+        # records = None
+        # if self._table.num_updates >= 100:
+        #     global new_keys
+        #     new_keys = True
+        # if new_keys:
+        #     records = [Record(user=key + "new", timestamp=time.time()) for key in keys]
+        #     with open(OPERATOR_LOG_FILE_NAME, "a+") as f:
+        #         f.write("\nWrote all the new records!\n")
+        # else:
+        #     records = [Record(user=key, timestamp=time.time()) for key in keys]
+        #     with open(OPERATOR_LOG_FILE_NAME, "a+") as f:
+        #         f.write("\nWrote all the original records!\n")
+        # return records
+
+        global next_key_index, key_suffix
+        if next_key_index < len(keys):
+            next_key_index += 1
+            return [Record(user=keys[next_key_index] + key_suffix, timestamp=time.time())]
+        elif key_suffix != "":
+            time.sleep(50)
+            return []
+        else:
+            key_suffix = "_new"
+            next_key_index = 1
+            time.sleep(20)
+            return [Record(user=keys[0] + key_suffix, timestamp=time.time())]
+
+        # if self._table.num_updates > 0:
+        #     time.sleep(30)
+
+        # records = None
+        # if self._table.num_updates >= 100:
+        #     global new_keys
+        #     new_keys = True
+        # if new_keys:
+        #     records = [Record(user=key + "new", timestamp=time.time()) for key in keys]
+        #     with open(OPERATOR_LOG_FILE_NAME, "a+") as f:
+        #         f.write("\nWrote all the new records!\n")
+        # else:
+        #     records = [Record(user=key, timestamp=time.time()) for key in keys]
+        #     with open(OPERATOR_LOG_FILE_NAME, "a+") as f:
+        #         f.write("\nWrote all the original records!\n")
+        # return records
+
 
 
 from ralf import Schema
@@ -52,7 +106,7 @@ class LongLatency(Operator):
     def on_record(self, record: Record):
         mem_record, did_fetch_from_disk, ec = mm.get(self.name + "_" + record.user)
         if mem_record is None:
-            time.sleep(3)
+            #time.sleep(0.2)
             ec.extend(mm.set(self.name + "_" + record.user, record))
         if did_fetch_from_disk:
             with open(DISK_READ_FILE_NAME, "r") as f:
@@ -77,7 +131,7 @@ class ShortLatency(Operator):
     def on_record(self, record: Record):
         mem_record, _, ec = mm.get(self.name + "_" + record.user)
         if mem_record is None:
-            time.sleep(0.00000001)
+            #time.sleep(0.00000001)
             ec.extend(mm.set(self.name + "_" + record.user, record))
         for candidate_key in range(len(ec)):
             if candidate_key.find("short_latency") != 0:
@@ -108,7 +162,7 @@ class Writer(Operator):
         super().__init__(schema)
 
     def on_record(self, record: Record):
-        with open(LOG_FILE_NAME, "a+") as f:
+        with open(OPERATOR_LOG_FILE_NAME, "a+") as f:
             f.write(f"st:{record.start_timestamp} | et: {record.end_timestamp} | latency: {record.end_timestamp - record.start_timestamp}\n")
         return record
 
@@ -179,17 +233,22 @@ async def timed_table_bulk_query(table):
 # ************************************************************************** #
 # ************************************************************************** #
 
-keys = ["v_{i}" for i in range(1000000000)]
+# keys = [f"v_{i}" for i in range(100)]
 
 for key in keys:
     next_record_id_queue.append(key)
+print(next_record_id_queue)
 
-with open(LOG_FILE_NAME, "a+") as f:
+with open(QUERY_LOG_FILE_NAME, "a+") as f:
     f.write("\nFinished loading the table!\n")
+print("\nFinished loading the table!\n")
+
+time.sleep(20)
 
 # Query the keys (equivalent to insertion in sim)
-with open(LOG_FILE_NAME, "a+") as f:
+with open(QUERY_LOG_FILE_NAME, "a+") as f:
     f.write("\nStarting to query keys!\n")
+print("\nStarting to query keys!\n")
 
 from scipy.stats import norm
 import numpy as np
@@ -197,29 +256,32 @@ import numpy as np
 gaussian_pdf = norm.pdf(np.linspace(norm.ppf(0.01), norm.ppf(0.99), len(keys)))
 normalized_gaussian_pdf = gaussian_pdf / sum(gaussian_pdf)
 
-num_queries = 1000
+num_queries = 100
 for query in range(num_queries):
     random_key = np.random.choice(keys, p=normalized_gaussian_pdf)
 
-    timed_table_point_query(Writer, random_key)
-    pq_latency = ralf_client.point_query(table_name="writer", key="1")
-    with open(LOG_FILE_NAME, "a+") as f:
+    #timed_table_point_query(Writer, random_key)
+    pq_latency = asyncio.run(timed_table_point_query(writer, random_key))
+    with open(QUERY_LOG_FILE_NAME, "a+") as f:
         f.write(f"PQ | Key: {random_key} | Latency: {pq_latency}\n")
 
-with open(LOG_FILE_NAME, "a+") as f:
+with open(QUERY_LOG_FILE_NAME, "a+") as f:
     f.write("\nFinished querying keys!\n")
-
+print("\nFinished querying keys!\n")
 # Insert keys (equivalent to queries in sim)
 
-with open(LOG_FILE_NAME, "a+") as f:
-    f.write("\nStarting to insert keys!\n")
+time.sleep(30)
 
-num_insertions = 1000
+with open(QUERY_LOG_FILE_NAME, "a+") as f:
+    f.write("\nStarting to insert keys!\n")
+print("\nStarting to insert keys!\n")
+
+num_insertions = 100
 for insertion in range(num_insertions):
     random_key = np.random.choice(keys) + "_new"
     next_record_id_queue.append(random_key)
 
-with open(LOG_FILE_NAME, "a+") as f:
+with open(QUERY_LOG_FILE_NAME, "a+") as f:
     f.write("\nFinished inserting keys!\n")
-
+print("\nFinished inserting keys!\n")
 # Mix of queries and insertions

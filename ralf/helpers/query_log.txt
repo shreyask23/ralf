@@ -1,0 +1,13 @@
+
+Finished loading the table!
+
+Starting to query keys!
+PQ | Key: v_46 | Latency: 7.867813110351562e-06
+PQ | Key: v_12 | Latency: 1.0013580322265625e-05
+PQ | Key: v_41 | Latency: 7.867813110351562e-06
+PQ | Key: v_30 | Latency: 8.344650268554688e-06
+PQ | Key: v_63 | Latency: 6.9141387939453125e-06
+PQ | Key: v_60 | Latency: 7.152557373046875e-06
+PQ | Key: v_75 | Latency: 7.152557373046875e-06
+PQ | Key: v_62 | Latency: 6.9141387939453125e-06
+PQ | Key: v_27 | Latency: 6.9141387939453125e-06
