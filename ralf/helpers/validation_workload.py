@@ -120,7 +120,7 @@ class Writer(Operator):
 
     def on_record(self, record: Record):
         with open(OPERATOR_LOG_FILE_NAME, "a+") as f:
-            f.write(f"st:{record.start_timestamp} | et: {record.end_timestamp} | latency: {record.end_timestamp - record.start_timestamp}\n")
+            f.write(f"{record.start_timestamp}|{record.end_timestamp}|{record.end_timestamp - record.start_timestamp}\n")
         return record
 
 writer_latency_schema = Schema(
