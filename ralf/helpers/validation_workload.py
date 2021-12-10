@@ -18,12 +18,15 @@ DISK_READ_FILE_NAME = "disk_read.txt"
 OPERATOR_LOG_FILE_NAME = "operator_log.txt"
 QUERY_LOG_FILE_NAME = "query_log.txt"
 
+# WRITE_MESSAGE = "This is a new record!"*350000 + "\n"
+
 next_record_id_queue = deque([])
 keys = [f"v_{i}" for i in range(100)]
 next_key_index = 0
 
+OPTIMIZATION_ENABLED = True
 mm = MemoryManager()
-mm.toggle_cost_aware_optimization_enabled_parameter(True)
+mm.toggle_cost_aware_optimization_enabled_parameter(OPTIMIZATION_ENABLED)
 
 class Source(SourceOperator):
     def __init__(self, schema):
@@ -70,9 +73,12 @@ class LongLatency(Operator):
                 lines = f.readlines()
                 lines.split()
         for candidate_key in ec:
-            if candidate_key.find("short_latency") != 0:
+            if not OPTIMIZATION_ENABLED and candidate_key.find("short_latency") == 0:
                 with open(DISK_WRITE_FILE_NAME, "a+") as f:
-                    f.write("Here's a new record!\n")
+                    f.write("This is a new record!"*350000)
+            if candidate_key.find("long_latency") == 0:
+                with open(DISK_WRITE_FILE_NAME, "a+") as f:
+                    f.write("This is a new record!"*350000)
         return record
 
 long_latency_schema = Schema(
@@ -91,9 +97,12 @@ class ShortLatency(Operator):
             #time.sleep(0.00000001)
             ec.extend(mm.set(self.name + "_" + record.user, record))
         for candidate_key in ec:
-            if candidate_key.find("short_latency") != 0:
+            if not OPTIMIZATION_ENABLED and candidate_key.find("short_latency") == 0:
                 with open(DISK_WRITE_FILE_NAME, "a+") as f:
-                    f.write("Here's a new record!\n")
+                    f.write("This is a new record!"*350000)
+            if candidate_key.find("long_latency") == 0:
+                with open(DISK_WRITE_FILE_NAME, "a+") as f:
+                    f.write("This is a new record!"*350000)
         return record
 
 short_latency_schema = Schema(
