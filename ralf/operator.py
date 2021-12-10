@@ -309,7 +309,7 @@ class Operator(ABC):
 
     async def timed_get(self, key: str):
         start_time = time.time()
-        result = self.get(key)
+        result = await self.get(key)
         end_time = time.time()
         return (start_time, end_time, result)
     

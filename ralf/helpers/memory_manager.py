@@ -19,10 +19,10 @@ ONE_KILOBYTE = 1e3
 ONE_MEGABYTE = 1e6
 ONE_GIGABYTE = 1e9
 
-DEFAULT_MEMORY_CAPACITY_NUM_BYTES = ONE_KILOBYTE #10*ONE_MEGABYTE
+DEFAULT_MEMORY_CAPACITY_NUM_BYTES = ONE_KILOBYTE / 2 #10*ONE_MEGABYTE
 
-DEFAULT_MEMORY_ACCESS_READING_LATENCY_SEC = 2
-DEFAULT_MEMORY_ACCESS_WRITING_LATENCY_SEC = 4
+DEFAULT_MEMORY_ACCESS_READING_LATENCY_SEC = 2e-3
+DEFAULT_MEMORY_ACCESS_WRITING_LATENCY_SEC = 4e-3
 DEFAULT_DISK_ACCESS_READING_LATENCY_SEC = DEFAULT_MEMORY_ACCESS_READING_LATENCY_SEC*359
 DEFAULT_DISK_ACCESS_WRITING_LATENCY_SEC = DEFAULT_DISK_ACCESS_READING_LATENCY_SEC*2
 
@@ -96,7 +96,6 @@ class MemoryManager:
         return self.record_num_bytes
 
     def evict(self, eviction_candidates: List['tuple[Hashable, int]'], opt_params={}):
-        # print(f"Eviction candidates: {eviction_candidates}")
         for key in eviction_candidates:
             record = self.mem_cache[key]
             del self.mem_cache[key]
