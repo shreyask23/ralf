@@ -12,4 +12,6 @@ with open("disk_write.txt", "a+") as f:
     f.write(WRITE_MESSAGE)
 end_time = time.time()
 
+open("disk_write.txt", "w").close()  # Clear the file
+
 print(f"Checking with length {args.len}: ", end_time - start_time)
