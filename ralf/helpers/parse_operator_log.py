@@ -3,9 +3,11 @@ import numpy as np
 OPERATOR_LOG_FILE_NAME = "operator_log.txt"
 
 latencies = []
+ignore_lines = 200
 
 with open(OPERATOR_LOG_FILE_NAME, "r+") as f:
-    for line in f:
+    lines = f.readlines()[ignore_lines:]
+    for line in lines:
         toks = line.strip().split("|")
         latencies.append(float(toks[2]))
 
