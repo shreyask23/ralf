@@ -17,7 +17,7 @@ DISK_WRITE_FILE_NAME = "disk_write.txt"
 DISK_READ_FILE_NAME = "disk_read.txt"
 OPERATOR_LOG_FILE_NAME = "operator_log.txt"
 QUERY_LOG_FILE_NAME = "query_log.txt"
-DISK_WRITE_MSG_NUM = 20000
+DISK_WRITE_MSG_NUM = 1
 
 open(DISK_WRITE_FILE_NAME, "w").close()
 
@@ -25,7 +25,7 @@ open(DISK_WRITE_FILE_NAME, "w").close()
 
 next_record_id_queue = deque([])
 keys = [f"v_{i}" for i in range(100)]
-next_key_index = 0
+next_key_index = -1
 
 OPTIMIZATION_ENABLED = False
 mm = MemoryManager()
@@ -40,9 +40,18 @@ class Source(SourceOperator):
         #if next_key_index < 2 * len(keys):
         #if next_key_index == len(keys):
         #    time.sleep(10)
+        if next_key_index > 98:
+            time.sleep(30)
+            next_key_index = -1
         time.sleep(0.05)
         next_key_index += 1
-        return [Record(user=keys[(next_key_index-1) % len(keys)], timestamp=time.time())]
+        # with open(OPERATOR_LOG_FILE_NAME, "a") as f:
+        #     f.write(str(next_key_index) + "\n")
+        record = [Record(user=keys[next_key_index], timestamp=time.time())]
+        # with open(OPERATOR_LOG_FILE_NAME, "a") as f:
+        #     f.write("post record\n")
+        return record
+        # return [Record(user=keys[0], timestamp=time.time())]
 
 from ralf import Schema
 
@@ -62,15 +71,21 @@ class LongLatency(Operator):
         self.name = "long_latency"
 
     def on_record(self, record: Record):
+        # with open(OPERATOR_LOG_FILE_NAME, "a") as f:
+        #     f.write("started long operator\n")
         mem_record, did_fetch_from_disk, ec = mm.get(self.name + "_" + record.user)
+        # with open(OPERATOR_LOG_FILE_NAME, "a") as f:
+        #     f.write("fetched records\n")
         if mem_record is None:
             time.sleep(0.04)
             ec.extend(mm.set(self.name + "_" + record.user, record))
+        # with open(OPERATOR_LOG_FILE_NAME, "a") as f:
+        #     f.write("got None\n")
         if did_fetch_from_disk:
             with open(DISK_WRITE_FILE_NAME, "a+") as f:
                 #lines = f.readlines()
                 #lines.split()
-                f.write("This is a new record!"*DISK_WRITE_MSG_NUM // 2)
+                f.write("This is a new record!"*(DISK_WRITE_MSG_NUM // 2))
         for candidate_key in ec:
             if not OPTIMIZATION_ENABLED and candidate_key.find("short_latency") == 0:
                 with open(DISK_WRITE_FILE_NAME, "a+") as f:
@@ -78,6 +93,8 @@ class LongLatency(Operator):
             if candidate_key.find("long_latency") == 0:
                 with open(DISK_WRITE_FILE_NAME, "a+") as f:
                     f.write("This is a new record!"*DISK_WRITE_MSG_NUM)
+        # with open(OPERATOR_LOG_FILE_NAME, "a") as f:
+        #     f.write("finished long operator\n")
         return record
 
 long_latency_schema = Schema(
@@ -102,6 +119,8 @@ class ShortLatency(Operator):
             if candidate_key.find("long_latency") == 0:
                 with open(DISK_WRITE_FILE_NAME, "a+") as f:
                     f.write("This is a new record!"*DISK_WRITE_MSG_NUM)
+        # with open(OPERATOR_LOG_FILE_NAME, "a") as f:
+        #     f.write("finished short operator\n")
         return record
 
 short_latency_schema = Schema(
@@ -115,6 +134,8 @@ class SinkOperator(Operator):
 
     def on_record(self, record: Record):
         output_record = Record(user=record.user, start_timestamp=record.timestamp, end_timestamp=time.time())
+        # with open(OPERATOR_LOG_FILE_NAME, "a") as f:
+        #     f.write("finished sink operator\n")
         return output_record
 
 sink_latency_schema = Schema(
