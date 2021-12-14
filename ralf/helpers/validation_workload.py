@@ -17,6 +17,9 @@ DISK_WRITE_FILE_NAME = "disk_write.txt"
 DISK_READ_FILE_NAME = "disk_read.txt"
 OPERATOR_LOG_FILE_NAME = "operator_log.txt"
 QUERY_LOG_FILE_NAME = "query_log.txt"
+DISK_WRITE_MSG_NUM = 20000
+
+open(DISK_WRITE_FILE_NAME, "w").close()
 
 # WRITE_MESSAGE = "This is a new record!"*350000 + "\n"
 
@@ -24,7 +27,7 @@ next_record_id_queue = deque([])
 keys = [f"v_{i}" for i in range(100)]
 next_key_index = 0
 
-OPTIMIZATION_ENABLED = True
+OPTIMIZATION_ENABLED = False
 mm = MemoryManager()
 mm.toggle_cost_aware_optimization_enabled_parameter(OPTIMIZATION_ENABLED)
 
@@ -34,17 +37,12 @@ class Source(SourceOperator):
 
     def next(self):
         global next_key_index, key_suffix
-        if next_key_index < 2 * len(keys):
-            if next_key_index == len(keys):
-                time.sleep(20)
-            time.sleep(0.05)
-            next_key_index += 1
-            return [Record(user=keys[next_key_index % len(keys)], timestamp=time.time())]
-        else:
-            time.sleep(100)
-            next_key_index = 1
-            return [Record(user=keys[0], timestamp=time.time())]
-
+        #if next_key_index < 2 * len(keys):
+        #if next_key_index == len(keys):
+        #    time.sleep(10)
+        time.sleep(0.05)
+        next_key_index += 1
+        return [Record(user=keys[(next_key_index-1) % len(keys)], timestamp=time.time())]
 
 from ralf import Schema
 
@@ -69,16 +67,17 @@ class LongLatency(Operator):
             time.sleep(0.04)
             ec.extend(mm.set(self.name + "_" + record.user, record))
         if did_fetch_from_disk:
-            with open(DISK_READ_FILE_NAME, "r") as f:
-                lines = f.readlines()
-                lines.split()
+            with open(DISK_WRITE_FILE_NAME, "a+") as f:
+                #lines = f.readlines()
+                #lines.split()
+                f.write("This is a new record!"*DISK_WRITE_MSG_NUM // 2)
         for candidate_key in ec:
             if not OPTIMIZATION_ENABLED and candidate_key.find("short_latency") == 0:
                 with open(DISK_WRITE_FILE_NAME, "a+") as f:
-                    f.write("This is a new record!"*350000)
+                    f.write("This is a new record!"*DISK_WRITE_MSG_NUM)
             if candidate_key.find("long_latency") == 0:
                 with open(DISK_WRITE_FILE_NAME, "a+") as f:
-                    f.write("This is a new record!"*350000)
+                    f.write("This is a new record!"*DISK_WRITE_MSG_NUM)
         return record
 
 long_latency_schema = Schema(
@@ -99,10 +98,10 @@ class ShortLatency(Operator):
         for candidate_key in ec:
             if not OPTIMIZATION_ENABLED and candidate_key.find("short_latency") == 0:
                 with open(DISK_WRITE_FILE_NAME, "a+") as f:
-                    f.write("This is a new record!"*350000)
+                    f.write("This is a new record!"*DISK_WRITE_MSG_NUM)
             if candidate_key.find("long_latency") == 0:
                 with open(DISK_WRITE_FILE_NAME, "a+") as f:
-                    f.write("This is a new record!"*350000)
+                    f.write("This is a new record!"*DISK_WRITE_MSG_NUM)
         return record
 
 short_latency_schema = Schema(
@@ -205,11 +204,12 @@ time.sleep(30)
 
 print("\nStarting to insert keys!\n")
 
-num_insertions = 100
+num_insertions = 1000
 for insertion in range(num_insertions):
     random_key = np.random.choice(keys) + "_new"
     next_record_id_queue.append(random_key)
 
 print("\nFinished inserting keys!\n")
 time.sleep(20)
+open(DISK_WRITE_FILE_NAME, "w").close()
 # Mix of queries and insertions
